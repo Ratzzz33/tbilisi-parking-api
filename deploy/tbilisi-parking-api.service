@@ -1,0 +1,24 @@
+[Unit]
+Description=Tbilisi Parking API — управление парковкой в Тбилиси
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=5min
+StartLimitBurst=20
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/lifeos/services/tbilisi-parking-api
+EnvironmentFile=/opt/lifeos/services/tbilisi-parking-api/.env
+ExecStart=/opt/lifeos/services/tbilisi-parking-api/.venv/bin/python3 -m uvicorn api.app:app --host 127.0.0.1 --port 8127 --log-level info
+Restart=always
+RestartSec=5s
+TimeoutStartSec=30s
+TimeoutStopSec=20s
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/opt/lifeos/services/tbilisi-parking-api
+
+[Install]
+WantedBy=multi-user.target
