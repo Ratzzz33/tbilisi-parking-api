@@ -12,3 +12,4 @@ build/
 *.apk
 *.db
 jadx/
+exports/
