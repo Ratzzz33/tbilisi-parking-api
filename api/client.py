@@ -63,6 +63,8 @@ class ParkingClient:
     def get_active_parkings(self) -> list[dict]:
         raw = self._request("GET", "/parking/")
         data = raw.get("result", {}).get("data", [])
+        if not data:
+            return []
         if isinstance(data, dict):
             data = [data]
         return [p for p in data if p]
