@@ -3,11 +3,17 @@
 # or when the wallet balance is below the configured threshold.
 set -euo pipefail
 
-API_URL="${PARKING_API_URL:-http://127.0.0.1:8127/health}"
+API_URL="${PARKING_API_URL:-http://127.0.0.1:8127/status}"
+ENV_FILE="${PARKING_API_ENV_FILE:-/opt/lifeos/services/tbilisi-parking-api/.env}"
 THRESHOLD_GEL="${BALANCE_ALERT_THRESHOLD_GEL:-10}"
 
+# shellcheck disable=SC1090
+source "$ENV_FILE"
+: "${PARKING_API_KEY:?PARKING_API_KEY must be configured}"
+
 response=""
-if ! response=$(curl --fail --silent --show-error --max-time 15 "$API_URL" 2>&1); then
+if ! response=$(curl --fail --silent --show-error --max-time 15 \
+  -H "X-API-Key: $PARKING_API_KEY" "$API_URL" 2>&1); then
   service_state=$(systemctl is-active tbilisi-parking-api 2>/dev/null || true)
   printf '🚨 Parking API недоступен\nСервис systemd: %s\nПроверка: %s\nВремя UTC: %s\n' \
     "${service_state:-unknown}" "$API_URL" "$(date -u '+%Y-%m-%d %H:%M:%S')"
@@ -23,9 +29,9 @@ from datetime import datetime, timezone
 threshold = float(sys.argv[1])
 try:
     payload = json.loads(os.environ["PAYLOAD_JSON"])
-    if payload.get("status") != "ok":
-        raise ValueError(f"API status: {payload.get('status', 'unknown')}")
-    balance = float(payload["person"]["balanceAmount"])
+    if not payload.get("success"):
+        raise ValueError("API response unsuccessful")
+    balance = float(payload["data"]["balanceAmount"])
 except Exception as exc:
     state = "unknown"
     try:
