@@ -26,12 +26,12 @@ class ParkingClient:
         }
 
     def _request(self, method: str, path: str, data: dict = None,
-                 base: str = API_BASE) -> dict:
+                 base: str = API_BASE, params: Optional[dict] = None) -> dict:
         url = f"{base}{path}"
         body = json.dumps({"data": data}).encode() if data else None
 
         with httpx.Client() as client:
-            resp = client.request(method, url, content=body,
+            resp = client.request(method, url, content=body, params=params,
                                   headers=self._headers, timeout=self.timeout)
             resp.raise_for_status()
             return resp.json()
