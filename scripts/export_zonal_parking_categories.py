@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
-"""Classify official zonal parking places by their live municipal tariff.
+"""Classify official municipal A-catalog places by their live tariff.
 
 The municipal catalog has coordinates/addresses, while the detail endpoint
 (`/parking/place/{id}`) provides `freeParking` and hourly `parkingPrices`.
 This exporter joins those two official responses and writes separate files for
-free and hourly places. It deliberately does *not* invent a "subscription-only"
-category: the official response has no such per-place field.
+free and hourly places. The current catalog has only `A` identifiers; it does
+not provide an address catalog for B/C zones. It deliberately does *not*
+invent a "subscription-only" category: the official response has no such
+per-place field.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -96,7 +99,7 @@ async def main() -> None:
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d")
     fields = list(records[0])
     for label, collection in (("free", free), ("hourly", hourly), ("all-classified", records)):
-        path = OUTPUT / f"tbilisi-municipal-zonal-{label}-{stamp}.csv"
+        path = OUTPUT / f"tbilisi-municipal-parking-catalog-a-{label}-{stamp}.csv"
         with path.open("w", newline="", encoding="utf-8") as file:
             writer = csv.DictWriter(file, fieldnames=fields)
             writer.writeheader()

@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
-"""Export official Tbilisi municipal zonal-parking places for GeoDrive CRM.
+"""Export the official Tbilisi municipal A-place catalog for GeoDrive CRM.
 
 Writes three artifacts to exports/:
 - CSV: addresses and centroid coordinates for spreadsheets/imports;
 - GeoJSON: official parking polygons for map layers;
 - JSON: records shaped for CRM's map_parking table/API.
 
-The source is the authenticated official municipal API. PARKING_TOKEN is read
-from the local .env and is never written to an export.
+The source is the authenticated official municipal API. Its `/parking/places`
+catalog currently exposes 2,318 places, all with an `A` identifier; it does
+not expose a separate B/C catalog feed. PARKING_TOKEN is read from the local
+.env and is never written to an export.
 """
 from __future__ import annotations
 
@@ -97,7 +99,7 @@ def main() -> None:
 
     OUTPUT.mkdir(exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d")
-    stem = OUTPUT / f"tbilisi-municipal-zonal-parking-{stamp}"
+    stem = OUTPUT / f"tbilisi-municipal-parking-catalog-a-{stamp}"
     csv_path = stem.with_suffix(".csv")
     geojson_path = stem.with_suffix(".geojson")
     crm_path = stem.with_name(f"{stem.name}-crm.json")
@@ -111,7 +113,7 @@ def main() -> None:
         json.dumps(
             {
                 "type": "FeatureCollection",
-                "name": "Tbilisi municipal zonal parking",
+                "name": "Tbilisi municipal parking catalog (A places)",
                 "source": "https://parking.tbilisi.gov.ge",
                 "exported_at_utc": exported_at,
                 "features": features,
