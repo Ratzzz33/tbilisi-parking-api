@@ -9,13 +9,14 @@ Run:
 Or with systemd (recommended):
     systemctl start tbilisi-parking-api
 """
-import os, logging
+import os, logging, secrets
 from contextlib import asynccontextmanager
 from typing import Optional
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Query, Depends
+from fastapi import FastAPI, HTTPException, Query, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from .client import ParkingClient
 from .models import (
@@ -29,6 +30,7 @@ logger = logging.getLogger("parking-api")
 
 # --- Global client ---
 _client: Optional[ParkingClient] = None
+_api_key: Optional[str] = None
 
 
 def get_client() -> ParkingClient:
@@ -39,13 +41,17 @@ def get_client() -> ParkingClient:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _client
+    global _client, _api_key
     token = os.environ.get("PARKING_TOKEN", "")
+    _api_key = os.environ.get("PARKING_API_KEY") or None
     if not token:
         logger.warning("PARKING_TOKEN not set — service will return 503 on all requests")
+    if not _api_key:
+        logger.error("PARKING_API_KEY not set — authenticated routes are disabled")
     _client = ParkingClient(token) if token else None
     yield
     _client = None
+    _api_key = None
 
 
 app = FastAPI(
@@ -57,11 +63,22 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=[],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "DELETE"],
+    allow_headers=["X-API-Key", "Content-Type"],
 )
+
+
+@app.middleware("http")
+async def require_api_key(request: Request, call_next):
+    if request.url.path == "/health":
+        return await call_next(request)
+    if not _api_key:
+        return JSONResponse(status_code=503, content={"detail": "API key not configured"})
+    if not secrets.compare_digest(request.headers.get("X-API-Key", ""), _api_key):
+        return JSONResponse(status_code=401, content={"detail": "Invalid API key"})
+    return await call_next(request)
 
 
 # ---- Health ---
@@ -71,10 +88,17 @@ def health():
     if _client is None:
         return {"status": "error", "message": "PARKING_TOKEN not configured"}
     ok = _client.validate_token()
-    return {
-        "status": "ok" if ok else "token_expired",
-        "person": _client.get_person_info().model_dump() if ok else None,
-    }
+    return {"status": "ok" if ok else "token_expired", "token_valid": ok}
+
+
+@app.get("/status", response_model=ApiResponse)
+def status(client: ParkingClient = Depends(get_client)):
+    person = client.get_person_info()
+    return ApiResponse(success=True, data={
+        "balanceAmount": person.balanceAmount,
+        "dailyFreeParkingLeft": person.dailyFreeParkingLeft,
+        "activeParkingCount": len(client.get_active_parkings()),
+    })
 
 
 # ---- Token ---
